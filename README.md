@@ -1,5 +1,22 @@
-# AI_StackChan2
-AIｽﾀｯｸﾁｬﾝ2です。
+# AI_StackChan2_ut_custom
+AIｽﾀｯｸﾁｬﾝ2を少しカスタムするために作ったforkです。
+
+## TODO : カスタム予定
+
+- サーボ動作の微調整
+- Wifi設定用のHTMLの追加
+- オリジナルの顔を追加（m5stack-avatar-ut-customのaa-face）
+- 顔変更設定用のHTMLの追加
+- Bボタンに何か追加
+
+## DONE : 実装済み
+
+- なし
+
+---
+
+以下オリジナルのReadme
+
 <br><br>
 
 ![画像1](images/image1.png)<br><br>
