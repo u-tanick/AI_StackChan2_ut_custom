@@ -1,17 +1,25 @@
 # AI_StackChan2_ut_custom
+
 AIｽﾀｯｸﾁｬﾝ2を少しカスタムするために作ったforkです。
+極力元のコードはそのままに、欲しい機能を追加してます。
 
-## TODO : カスタム予定
+## カスタム実装済み
 
-- サーボ動作の微調整
-- Wifi設定用のHTMLの追加
-- オリジナルの顔を追加（m5stack-avatar-ut-customのaa-face）
+- オリジナルの顔を追加
+  - m5stack-avatar-ut-customのaa-face (`・ω・´)
+- Bボタンで顔変更の追加
 - 顔変更設定用のHTMLの追加
-- Bボタンに何か追加
+  - http://xxx.xxx.xxx.xxx/setting?face={番号}
+  - 番号は0以上の数字、存在しない番号は Out of Indexと表示される。
+    - 0 : 標準の顔 [・＿・]
+    - 1 : AA顔 (`・ω・´)
+- Wifi設定用のHTMLの追加
+  - http://xxx.xxx.xxx.xxx/wifi
 
-## DONE : 実装済み
+- その他の微調整
+  - platformio.ini
+    - ビルド対象を個別に指定する形（default_envsで指定）に変更
 
-- なし
 
 ---
 

@@ -27,6 +27,9 @@
 #include "Audio.h"
 #include "CloudSpeechClient.h"
 
+// Bボタンで切り替えるようの顔
+#include <AAFace.h>
+
 // 保存する質問と回答の最大数
 const int MAX_HISTORY = 5;
 
@@ -74,6 +77,11 @@ const Expression expressions_table[] = {
 };
 
 ESP32WebServer server(80);
+
+// Bボタンで顔を変更するための顔オブジェクト配列
+Face* faces[2];
+const int facesSize = sizeof(faces) / sizeof(Face*);
+int faceIdx = 0;
 
 //---------------------------------------------
 String OPENAI_API_KEY = "";
@@ -581,13 +589,22 @@ void handle_face() {
   server.send(200, "text/plain", String("OK"));
 }
 
+void switch_face(int fIdx){
+  avatar.setFace(faces[fIdx]);
+  faceIdx = (fIdx + 1) % facesSize;
+}
+
 void handle_setting() {
+
   String value = server.arg("volume");
   String led = server.arg("led");
   String speaker = server.arg("speaker");
+  String face = server.arg("face");
 //  volume = volume + "\n";
   Serial.println(speaker);
   Serial.println(value);
+  Serial.println(face);
+
   size_t speaker_no;
   if(speaker != ""){
     speaker_no = speaker.toInt();
@@ -616,6 +633,14 @@ void handle_setting() {
   }
   M5.Speaker.setVolume(volume);
   M5.Speaker.setChannelVolume(m5spk_virtual_channel, volume);
+
+  long faceId = face.toInt();
+  if(faceId < facesSize) {
+    switch_face(faceId);
+  } else {
+    server.send(200, "text/plain", String("Out of Index"));
+  }
+
   server.send(200, "text/plain", String("OK"));
 }
 
@@ -841,6 +866,75 @@ String SpeechToText(bool isGoogle){
   return ret;
 }
 
+// Wifi設定入力画面
+static const char WIFI_HTML[] PROGMEM = R"KEWL(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Wifi設定</title>
+  </head>
+  <body>
+    <h1>Wifi設定</h1>
+    <form>
+      <label for="role1">SSID</label>
+      <input type="text" id="ssid" name="ssid" oninput="adjustSize(this)"><br>
+      <label for="role2">Password</label>
+      <input type="text" id="passw" name="passw" oninput="adjustSize(this)"><br>
+      <button type="button" onclick="sendData()">送信する</button>
+    </form>
+    <script>
+      function adjustSize(input) {
+        input.style.width = ((input.value.length + 1) * 8) + 'px';
+      }
+      function sendData() {
+        // FormDataオブジェクトを作成
+        const formData = new FormData();
+
+        // 各ロールの値をFormDataオブジェクトに追加
+        const ssidValue = document.getElementById("ssid").value;
+        if (ssidValue !== "") formData.append("ssid", ssidValue);
+
+        const passwValue = document.getElementById("passw").value;
+        if (passwValue !== "") formData.append("passw", passwValue);
+
+	    // POSTリクエストを送信
+	    const xhr = new XMLHttpRequest();
+	    xhr.open("POST", "/wifi_set");
+	    xhr.onload = function() {
+	      if (xhr.status === 200) {
+	        alert("データを送信しました！");
+	      } else {
+	        alert("送信に失敗しました。");
+	      }
+	    };
+	    xhr.send(formData);
+	  }
+	</script>
+  </body>
+</html>)KEWL";
+// Wifi設定入力画面表示
+void handle_wifi() {
+  // ファイルを読み込み、クライアントに送信する
+  server.send(200, "text/html", WIFI_HTML);
+};
+// 入力したWifi設定値の反映
+void handle_wifi_set() {
+  // POST以外は拒否
+  if (server.method() != HTTP_POST) {
+    return;
+  }
+  String str_ssid = server.arg("ssid");
+  String str_passw = server.arg("passw");
+
+  char ssid[str_ssid.length() + 1];
+  strcpy(ssid, str_ssid.c_str());
+  char passw[str_passw.length() + 1];
+  strcpy(passw, str_passw.c_str());
+  WiFi.begin(ssid, passw);
+  Wifi_setup();
+};
+
 void setup()
 {
   auto cfg = M5.config();
@@ -1035,12 +1129,14 @@ void setup()
   server.on("/speech", handle_speech);
   server.on("/face", handle_face);
   server.on("/chat", handle_chat);
-  server.on("/apikey", handle_apikey);
   server.on("/setting", handle_setting);
+  server.on("/apikey", handle_apikey);
   server.on("/apikey_set", HTTP_POST, handle_apikey_set);
   server.on("/role", handle_role);
   server.on("/role_set", HTTP_POST, handle_role_set);
   server.on("/role_get", handle_role_get);
+  server.on("/wifi", handle_wifi);
+  server.on("/wifi_set", handle_wifi_set);
   server.onNotFound(handleNotFound);
 
   init_chat_doc(json_ChatString.c_str());
@@ -1079,7 +1175,11 @@ void setup()
   mp3 = new AudioGeneratorMP3();
 //  mp3->RegisterStatusCB(StatusCallback, (void*)"mp3");
 
-  avatar.init();
+  // オリジナルの顔を追加
+  faces[0] = avatar.getFace();
+  faces[1] = new AAFace();
+
+  avatar.init(8);
   avatar.addTask(lipSync, "lipSync");
   avatar.addTask(servo, "servo");
   avatar.setSpeechFont(&fonts::efontJA_16);
@@ -1140,6 +1240,7 @@ void loop()
     }
   }
 
+  // ボタンA：独り言モード切り替え
   if (M5.BtnA.wasPressed())
   {
     M5.Speaker.tone(1000, 100);
@@ -1226,6 +1327,14 @@ void loop()
   }
 #endif
 
+  // ボタンB：顔を切り替え
+  if (M5.BtnB.wasPressed())
+  {
+    M5.Speaker.tone(1000, 100);
+    switch_face(faceIdx);
+  }
+
+  // ボタンC：バッテリー残量確認
   if (M5.BtnC.wasPressed())
   {
     M5.Speaker.tone(1000, 100);
@@ -1253,4 +1362,3 @@ void loop()
   }
 //delay(100);
 }
- 
